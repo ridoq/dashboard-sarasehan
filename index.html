@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Live Dashboard Screening Lomba PKM - Sarasehan 2026</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="chart.umd.min.js"></script>
+  <script src="chartjs-plugin-datalabels.min.js"></script>
+</head>
+<body>
+  <!-- Header Bar -->
+  <header class="dashboard-header">
+    <div class="brand-group">
+      <div class="logo-badge">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+        </svg>
+        <span>FORMADIKSI POLINEMA</span>
+      </div>
+      <div class="title-wrap">
+        <h1>Screening Lomba PKM 2026</h1>
+        <p class="subtitle">Sarasehan & Pembekalan PKM Formadiksi Polinema 2026</p>
+      </div>
+    </div>
+
+    <!-- Live Status & Controls -->
+    <div class="header-controls">
+      <div class="status-indicator" id="status-indicator">
+        <span class="pulse-dot"></span>
+        <span class="status-text" id="status-text">Memuat Data...</span>
+      </div>
+
+      <div class="control-buttons">
+        <button id="btn-demo" class="btn btn-secondary" title="Mode Simulasi Pengujian">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          <span id="demo-btn-label">Demo: Off</span>
+        </button>
+        <button id="btn-config" class="btn btn-secondary" title="Konfigurasi Sumber Spreadsheet">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          <span>Setup Sheet</span>
+        </button>
+        <button id="btn-theme" class="btn btn-secondary" title="Ganti Tema (Light/Dark)">
+          <span id="theme-btn-icon">🌙</span>
+          <span id="theme-btn-label">Dark</span>
+        </button>
+        <button id="btn-fullscreen" class="btn btn-primary" title="Layar Penuh (F11)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+          <span>Fullscreen</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Notification Banner for New Submissions -->
+  <div id="new-response-toast" class="toast-banner">
+    <div class="toast-content">
+      <span class="toast-icon">⚡</span>
+      <span class="toast-msg">Respon baru masuk! Memperbarui grafik...</span>
+    </div>
+  </div>
+
+  <main class="dashboard-main">
+    <!-- Quick Metric Cards -->
+    <section class="metrics-row">
+      <div class="metric-card highlight-glow">
+        <div class="metric-header">
+          <span class="metric-label">TOTAL RESPONDEN</span>
+          <span class="metric-badge" id="badge-live">LIVE</span>
+        </div>
+        <div class="metric-value-wrap">
+          <span class="metric-number" id="count-total">0</span>
+          <span class="metric-unit">Mahasiswa</span>
+        </div>
+        <div class="metric-footer" id="metric-last-sync">Sinkronisasi pertama...</div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-header">
+          <span class="metric-label">JURUSAN TERBANYAK</span>
+          <span class="metric-icon">🏛️</span>
+        </div>
+        <div class="metric-value-wrap">
+          <span class="metric-text-primary" id="top-jurusan">-</span>
+        </div>
+        <div class="metric-footer" id="top-jurusan-pct">0% dari total responden</div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-header">
+          <span class="metric-label">SKEMA PKM FAVORIT</span>
+          <span class="metric-icon">🏆</span>
+        </div>
+        <div class="metric-value-wrap">
+          <span class="metric-text-accent" id="top-pkm">-</span>
+        </div>
+        <div class="metric-footer" id="top-pkm-pct">0% dari total peminat</div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-header">
+          <span class="metric-label">INTERVAL POLLING</span>
+          <span class="metric-icon">⏱️</span>
+        </div>
+        <div class="metric-value-wrap">
+          <span class="metric-number-small" id="poll-timer">3</span>
+          <span class="metric-unit">detik</span>
+        </div>
+        <div class="metric-footer">Auto-update tanpa reload F5</div>
+      </div>
+    </section>
+
+    <!-- 2 Charts Grid Section -->
+    <section class="charts-grid">
+      <!-- Chart 1: Jurusan -->
+      <div class="chart-card">
+        <div class="card-head">
+          <div class="card-title-group">
+            <span class="card-pill pill-cyan">ANALISIS 01</span>
+            <h2>Distribusi Berdasarkan Jurusan</h2>
+          </div>
+          <span class="card-sub-info" id="jurusan-total-info">7 Jurusan Terdaftar</span>
+        </div>
+        
+        <div class="card-body">
+          <div class="canvas-container">
+            <canvas id="chart-jurusan"></canvas>
+          </div>
+          <div class="ranking-panel">
+            <div class="ranking-header">
+              <span>Jurusan</span>
+              <span>Jumlah & Rasio</span>
+            </div>
+            <div class="ranking-list" id="ranking-jurusan-list">
+              <!-- Dynamically rendered -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Chart 2: Skema PKM -->
+      <div class="chart-card">
+        <div class="card-head">
+          <div class="card-title-group">
+            <span class="card-pill pill-purple">ANALISIS 02</span>
+            <h2>Peminatan Jenis / Skema PKM</h2>
+          </div>
+          <span class="card-sub-info" id="pkm-total-info">6 Bidang PKM</span>
+        </div>
+
+        <div class="card-body">
+          <div class="canvas-container">
+            <canvas id="chart-pkm"></canvas>
+          </div>
+          <div class="ranking-panel">
+            <div class="ranking-header">
+              <span>Skema PKM</span>
+              <span>Jumlah & Rasio</span>
+            </div>
+            <div class="ranking-list" id="ranking-pkm-list">
+              <!-- Dynamically rendered -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Setup Spreadsheet Modal -->
+  <div id="modal-config" class="modal-backdrop">
+    <div class="modal-window">
+      <div class="modal-header">
+        <h3>Pengaturan Sumber Data Google Sheet</h3>
+        <button id="btn-close-modal" class="btn-close">&times;</button>
+      </div>
+      <div class="modal-content">
+        <p class="guide-text">
+          Pastikan Google Form lu sudah dihubungkan ke Google Sheet, lalu ubah izin berbagi Sheet menjadi 
+          <strong>"Siapa saja yang memiliki tautan" (Anyone with link can view)</strong>.
+        </p>
+
+        <div class="form-group">
+          <label for="input-sheet-url">URL atau ID Google Spreadsheet:</label>
+          <input 
+            type="text" 
+            id="input-sheet-url" 
+            class="input-field" 
+            placeholder="Contoh: https://docs.google.com/spreadsheets/d/1BxiMVs.../edit atau cukup ID-nya"
+          >
+          <span class="hint-text">ID otomatis dideteksi dari link yang lu paste. Disimpan otomatis di browser lu.</span>
+        </div>
+
+        <div class="form-group">
+          <label for="select-poll-interval">Interval Refresh Otomatis:</label>
+          <select id="select-poll-interval" class="select-field">
+            <option value="2000">Setiap 2 detik (Super Fast)</option>
+            <option value="3000" selected>Setiap 3 detik (Rekomendasi Standar)</option>
+            <option value="5000">Setiap 5 detik</option>
+            <option value="10000">Setiap 10 detik</option>
+          </select>
+        </div>
+
+        <div class="guide-steps">
+          <div class="step-item">
+            <span class="step-num">1</span>
+            <span>Buka Google Form Screening PKM di akun lu (<code>ridoq444@gmail.com</code>).</span>
+          </div>
+          <div class="step-item">
+            <span class="step-num">2</span>
+            <span>Klik tab <strong>Jawaban</strong> &rarr; klik ikon hijau <strong>Hubungkan ke Spreadsheet</strong>.</span>
+          </div>
+          <div class="step-item">
+            <span class="step-num">3</span>
+            <span>Di Spreadsheet: Klik <strong>Bagikan</strong> &rarr; pilih <strong>Siapa saja yang memiliki tautan (Pelihat)</strong>.</span>
+          </div>
+          <div class="step-item">
+            <span class="step-num">4</span>
+            <span>Salin link-nya lalu tempelkan di kotak input di atas &rarr; Klik Simpan!</span>
+          </div>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button id="btn-load-demo-data" class="btn btn-secondary">Isi Data Simulasi Demo</button>
+        <button id="btn-save-config" class="btn btn-primary">Simpan & Mulai Polling</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

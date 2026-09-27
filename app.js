@@ -43,7 +43,8 @@ let state = {
   sheetId: localStorage.getItem('sarasehan_pkm_sheet_id') || '',
   pollIntervalMs: parseInt(localStorage.getItem('sarasehan_poll_interval') || '3000'),
   isDemoMode: false,
-  timerId: null,
+  pollTimerId: null,
+  demoTimerId: null,
   lastRowCount: 0,
   isFetching: false,
   chartJurusan: null,
@@ -58,11 +59,14 @@ document.addEventListener('DOMContentLoaded', () => {
   initCharts();
   setupEventListeners();
 
-  if (!state.sheetId) {
-    // Jika belum ada Sheet ID, aktifkan mode Demo secara otomatis agar operator langsung lihat tampilan
-    setDemoMode(true);
-  } else {
+  if (state.sheetId) {
+    // Mulai polling Google Sheet otomatis jika ID sudah tersimpan
     startPolling();
+  } else {
+    // TAMPILAN KOSONG MURNI (0 RESPONDEN) - JANGAN AKTIFKAN DEMO OTOMATIS!
+    updateUIWithRows([]);
+    const statusText = document.getElementById('status-text');
+    if (statusText) statusText.innerText = 'Klik Setup Sheet untuk hubungkan';
   }
 });
 
@@ -83,7 +87,7 @@ function initCharts() {
     cutout: '62%',
     plugins: {
       legend: {
-        display: false // Menggunakan panel ranking kustom di samping agar lebih rapi & estetik
+        display: false
       },
       tooltip: {
         backgroundColor: 'rgba(15, 23, 42, 0.95)',
@@ -114,7 +118,7 @@ function initCharts() {
           const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
           if (total === 0) return '';
           const pct = ((value / total) * 100).toFixed(0);
-          return pct > 5 ? `${pct}%` : ''; // Hanya tampil jika slice > 5% agar tidak tumpuk
+          return pct > 5 ? `${pct}%` : '';
         }
       }
     }
@@ -167,6 +171,8 @@ function setupEventListeners() {
   const btnDemo = document.getElementById('btn-demo');
   const btnLoadDemo = document.getElementById('btn-load-demo-data');
   const btnTheme = document.getElementById('btn-theme');
+  const btnSyncNow = document.getElementById('btn-sync-now');
+  const btnClearData = document.getElementById('btn-clear-data');
 
   // Input default
   inputSheet.value = state.sheetId;
@@ -200,12 +206,41 @@ function setupEventListeners() {
       state.pollIntervalMs = parseInt(selectInterval.value);
       localStorage.setItem('sarasehan_poll_interval', state.pollIntervalMs.toString());
       modal.classList.remove('active');
-      setDemoMode(false);
+      setDemoMode(false); // Matikan demo mode
       startPolling();
     } else {
       alert('Masukkan link atau ID Google Spreadsheet yang valid!');
     }
   });
+
+  // Tombol Paksa Sinkron Sekarang
+  if (btnSyncNow) {
+    btnSyncNow.addEventListener('click', () => {
+      if (state.isDemoMode) {
+        setDemoMode(false);
+      }
+      if (state.sheetId) {
+        triggerToast('Menarik data terbaru dari Google Sheets...');
+        fetchSpreadsheetData();
+      } else {
+        alert('Harap hubungkan Google Sheet terlebih dahulu via tombol "Setup Sheet".');
+        modal.classList.add('active');
+      }
+    });
+  }
+
+  // Tombol Reset / Kosongkan Tampilan
+  if (btnClearData) {
+    btnClearData.addEventListener('click', () => {
+      setDemoMode(false);
+      state.lastRowCount = 0;
+      updateUIWithRows([]);
+      const statusText = document.getElementById('status-text');
+      if (statusText) statusText.innerText = 'Data berhasil dikosongkan (0)';
+      triggerToast('Tampilan berhasil direset ke 0 responden.');
+      modal.classList.remove('active');
+    });
+  }
 
   btnFullscreen.addEventListener('click', toggleFullscreen);
 
@@ -305,7 +340,10 @@ function animateTotalCountUp() {
   const el = document.getElementById('count-total');
   if (!el) return;
   const target = state.lastRowCount || (state.simulatedRows ? state.simulatedRows.length : 0);
-  if (target === 0) return;
+  if (target === 0) {
+    el.innerText = '0';
+    return;
+  }
 
   const duration = 1200;
   const startTime = performance.now();
@@ -355,37 +393,52 @@ function applyTheme(theme) {
   }
 }
 
-// Mode Demo / Simulasi
+// Mode Demo / Simulasi (HANYA AKTIF JIKA DIKLIK MANUAL)
 function setDemoMode(enable) {
   state.isDemoMode = enable;
   const btnDemo = document.getElementById('btn-demo');
   const label = document.getElementById('demo-btn-label');
   const statusText = document.getElementById('status-text');
 
+  // Bersihkan semua timer terlebih dahulu
+  if (state.demoTimerId) {
+    clearInterval(state.demoTimerId);
+    state.demoTimerId = null;
+  }
+  if (state.pollTimerId) {
+    clearInterval(state.pollTimerId);
+    state.pollTimerId = null;
+  }
+
   if (enable) {
-    btnDemo.classList.add('btn-primary');
-    btnDemo.classList.remove('btn-secondary');
-    label.innerText = 'Demo: Aktif';
-    statusText.innerText = 'Mode Simulasi Demo';
+    if (btnDemo) {
+      btnDemo.classList.add('btn-primary');
+      btnDemo.classList.remove('btn-secondary');
+    }
+    if (label) label.innerText = 'Demo: Aktif';
+    if (statusText) statusText.innerText = 'Mode Simulasi Demo';
     generateDemoData();
     updateUIWithRows(state.simulatedRows);
     
-    // Auto-tambah 1 respon tiap 5 detik di mode demo untuk demonstrasi panggung
-    if (state.timerId) clearInterval(state.timerId);
-    state.timerId = setInterval(() => {
+    // Auto-tambah 1 respon tiap 6 detik HANYA di mode demo
+    state.demoTimerId = setInterval(() => {
       if (state.isDemoMode) {
         addRandomDemoResponse();
       }
-    }, 5000);
+    }, 6000);
   } else {
-    btnDemo.classList.remove('btn-primary');
-    btnDemo.classList.add('btn-secondary');
-    label.innerText = 'Demo: Off';
-    if (state.timerId) clearInterval(state.timerId);
+    if (btnDemo) {
+      btnDemo.classList.remove('btn-primary');
+      btnDemo.classList.add('btn-secondary');
+    }
+    if (label) label.innerText = 'Demo: Off';
+    state.simulatedRows = [];
+
     if (state.sheetId) {
       startPolling();
     } else {
-      statusText.innerText = 'Belum Dikonfigurasi';
+      updateUIWithRows([]);
+      if (statusText) statusText.innerText = 'Klik Setup Sheet untuk hubungkan';
     }
   }
 }
@@ -393,7 +446,7 @@ function setDemoMode(enable) {
 // Generate Realistic Demo Data
 function generateDemoData() {
   state.simulatedRows = [];
-  const baseCount = 52; // Awal 52 responden
+  const baseCount = 52;
   
   // Bobot distribusi realistis (Teknologi Informasi tertinggi)
   const jurusanWeights = [
@@ -432,7 +485,7 @@ function addRandomDemoResponse() {
     pkm: pkmCodes[Math.floor(Math.random() * pkmCodes.length)]
   };
   state.simulatedRows.push(newRow);
-  triggerToast();
+  triggerToast('Simulasi: +1 respon demo masuk!');
   updateUIWithRows(state.simulatedRows);
 }
 
@@ -448,10 +501,20 @@ function getWeightedRandom(items) {
 
 // Alur Polling Real-Time ke Google Visualization API
 function startPolling() {
-  if (state.timerId) clearInterval(state.timerId);
+  if (state.pollTimerId) {
+    clearInterval(state.pollTimerId);
+    state.pollTimerId = null;
+  }
+  if (state.demoTimerId) {
+    clearInterval(state.demoTimerId);
+    state.demoTimerId = null;
+  }
+  state.isDemoMode = false;
+  
   fetchSpreadsheetData();
-  state.timerId = setInterval(fetchSpreadsheetData, state.pollIntervalMs);
-  document.getElementById('poll-timer').innerText = (state.pollIntervalMs / 1000).toString();
+  state.pollTimerId = setInterval(fetchSpreadsheetData, state.pollIntervalMs);
+  const timerEl = document.getElementById('poll-timer');
+  if (timerEl) timerEl.innerText = (state.pollIntervalMs / 1000).toString();
 }
 
 async function fetchSpreadsheetData() {
@@ -461,19 +524,27 @@ async function fetchSpreadsheetData() {
   const statusText = document.getElementById('status-text');
 
   try {
-    const url = `https://docs.google.com/spreadsheets/d/${state.sheetId}/gviz/tq?tqx=out:json&t=${Date.now()}`;
-    const res = await fetch(url);
+    // Cache-busting kuat: timestamp + no-store header agar selalu dapat data segar dari Sheets
+    const url = `https://docs.google.com/spreadsheets/d/${state.sheetId}/gviz/tq?tqx=out:json&tq=&headers=1&_=${Date.now()}`;
+    const res = await fetch(url, { cache: 'no-store' });
     if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
 
     const text = await res.text();
-    // Google Visualization membungkus JSON dengan /*O_o*/ google.visualization.Query.setResponse({...});
     const startIdx = text.indexOf('{');
     const endIdx = text.lastIndexOf('}');
     if (startIdx === -1 || endIdx === -1) throw new Error('Format respon Google Visualization tidak valid.');
 
     const json = JSON.parse(text.substring(startIdx, endIdx + 1));
     const table = json.table;
-    if (!table || !table.rows) throw new Error('Data tabel kosong');
+    
+    // JIKA TABEL KOSONG ATAU HANYA HEADER: BERSIHKAN TAMPILAN KE 0!
+    if (!table || !table.rows || table.rows.length === 0) {
+      state.lastRowCount = 0;
+      if (statusText) statusText.innerText = 'Online (0 respon - Sheet kosong)';
+      document.getElementById('metric-last-sync').innerText = `Terupdate: ${new Date().toLocaleTimeString('id-ID')}`;
+      updateUIWithRows([]);
+      return;
+    }
 
     // Cari letak indeks kolom Jurusan dan PKM secara otomatis dari header
     let colJurusanIdx = 2; // Default perkiraan (Timestamp=0, Nama=1, Jurusan=2, PKM=3)
@@ -487,33 +558,38 @@ async function fetchSpreadsheetData() {
       });
     }
 
-    // Parsing baris
+    // Parsing baris - filter baris yang benar-benar punya data
     const rows = [];
     table.rows.forEach(r => {
-      if (!r.c) return;
-      const rawJurusan = r.c[colJurusanIdx] ? r.c[colJurusanIdx].v || '' : '';
-      const rawPkm = r.c[colPkmIdx] ? r.c[colPkmIdx].v || '' : '';
-      if (rawJurusan || rawPkm) {
+      if (!r || !r.c) return;
+      const rawJurusan = r.c[colJurusanIdx] ? (r.c[colJurusanIdx].v || '') : '';
+      const rawPkm = r.c[colPkmIdx] ? (r.c[colPkmIdx].v || '') : '';
+      
+      const strJurusan = rawJurusan.toString().trim();
+      const strPkm = rawPkm.toString().trim();
+
+      // Hanya masukkan baris jika ada isi (bukan baris kosong sisa delete)
+      if (strJurusan !== '' || strPkm !== '') {
         rows.push({
-          jurusan: rawJurusan.toString().trim(),
-          pkm: rawPkm.toString().trim()
+          jurusan: strJurusan,
+          pkm: strPkm
         });
       }
     });
 
     // Cek apakah ada data baru masuk
     if (rows.length > state.lastRowCount && state.lastRowCount > 0) {
-      triggerToast();
+      triggerToast('Respon baru masuk! Memperbarui grafik...');
     }
     state.lastRowCount = rows.length;
 
-    statusText.innerText = `Online (${rows.length} respon)`;
+    if (statusText) statusText.innerText = `Online (${rows.length} respon)`;
     document.getElementById('metric-last-sync').innerText = `Terupdate: ${new Date().toLocaleTimeString('id-ID')}`;
     
     updateUIWithRows(rows);
   } catch (err) {
     console.error('Error fetching Google Sheet:', err);
-    statusText.innerText = 'Cek Izin Berbagi Sheet';
+    if (statusText) statusText.innerText = 'Cek Izin / Link Sheet';
   } finally {
     state.isFetching = false;
   }
@@ -521,55 +597,61 @@ async function fetchSpreadsheetData() {
 
 // Update Seluruh Tampilan Visual (Chart, Ranking List, dan Metric Cards)
 function updateUIWithRows(rows) {
-  const total = rows.length;
+  const total = rows ? rows.length : 0;
   document.getElementById('count-total').innerText = total.toLocaleString('id-ID');
 
-  // 1. Hitung Frekuensi Jurusan (Normalisasi Cerdas: Teknologi Informasi / Teknik Informatika -> Teknologi Informasi)
+  // 1. Hitung Frekuensi Jurusan
   const countJurusan = {};
   MASTER_JURUSAN.forEach(j => countJurusan[j] = 0);
 
-  rows.forEach(row => {
-    let val = (row.jurusan || '').toLowerCase().trim();
-    
-    // Normalisasi: jika respon mahasiswa masih berisi 'informatika' atau 'teknologi informasi' atau singkatan 'ti' / 'jti'
-    if (val.includes('informatika') || val.includes('teknologi informasi') || val === 'ti' || val === 'jti') {
-      countJurusan['Teknologi Informasi']++;
-      return;
-    }
+  if (rows && rows.length > 0) {
+    rows.forEach(row => {
+      let val = (row.jurusan || '').toLowerCase().trim();
+      
+      // Normalisasi cerdas: informatika / ti / jti -> Teknologi Informasi
+      if (val.includes('informatika') || val.includes('teknologi informasi') || val === 'ti' || val === 'jti') {
+        countJurusan['Teknologi Informasi']++;
+        return;
+      }
 
-    // Pencocokan fleksibel untuk jurusan lainnya
-    let matched = MASTER_JURUSAN.find(j => j.toLowerCase() === val);
-    if (!matched) {
-      matched = MASTER_JURUSAN.find(j => val.includes(j.toLowerCase()) || j.toLowerCase().includes(val));
-    }
-    if (matched) {
-      countJurusan[matched]++;
-    }
-  });
+      let matched = MASTER_JURUSAN.find(j => j.toLowerCase() === val);
+      if (!matched) {
+        matched = MASTER_JURUSAN.find(j => val.includes(j.toLowerCase()) || j.toLowerCase().includes(val));
+      }
+      if (matched) {
+        countJurusan[matched]++;
+      }
+    });
+  }
 
   // 2. Hitung Frekuensi PKM
   const countPkm = {};
   MASTER_PKM.forEach(p => countPkm[p.code] = 0);
 
-  rows.forEach(row => {
-    const rawVal = (row.pkm || '').toUpperCase();
-    // Bisa berupa single choice atau checkbox dipisah koma
-    MASTER_PKM.forEach(p => {
-      if (rawVal === p.code || rawVal.includes(`PKM-${p.code}`) || rawVal.includes(p.code)) {
-        countPkm[p.code]++;
-      }
+  if (rows && rows.length > 0) {
+    rows.forEach(row => {
+      const rawVal = (row.pkm || '').toUpperCase();
+      MASTER_PKM.forEach(p => {
+        if (rawVal === p.code || rawVal.includes(`PKM-${p.code}`) || rawVal.includes(p.code)) {
+          countPkm[p.code]++;
+        }
+      });
     });
-  });
+  }
 
   // 3. Update Chart Jurusan
   const dataJurusan = MASTER_JURUSAN.map(j => countJurusan[j]);
-  state.chartJurusan.data.datasets[0].data = dataJurusan;
-  state.chartJurusan.update();
+  if (state.chartJurusan) {
+    state.chartJurusan.data.datasets[0].data = dataJurusan;
+    state.chartJurusan.update();
+  }
 
   // 4. Update Chart PKM
   const dataPkm = MASTER_PKM.map(p => countPkm[p.code]);
-  state.chartPkm.data.datasets[0].data = dataPkm;
-  state.chartPkm.update();
+  if (state.chartPkm) {
+    state.chartPkm.data.datasets[0].data = dataPkm;
+    state.chartPkm.update();
+  }
 
   // 5. Render Ranking List Jurusan
   renderRankingList(
@@ -601,7 +683,7 @@ function updateUIWithRows(rows) {
   });
   document.getElementById('top-jurusan').innerText = topJ.count > 0 ? topJ.name : '-';
   const topJPct = total > 0 ? ((topJ.count / total) * 100).toFixed(1) : 0;
-  document.getElementById('top-jurusan-pct').innerText = `${topJ.count} mhs (${topJPct}%)`;
+  document.getElementById('top-jurusan-pct').innerText = topJ.count > 0 ? `${topJ.count} mhs (${topJPct}%)` : '0% dari total responden';
 
   let topP = { code: '-', count: 0, label: '-' };
   MASTER_PKM.forEach(p => {
@@ -611,12 +693,13 @@ function updateUIWithRows(rows) {
   });
   document.getElementById('top-pkm').innerText = topP.count > 0 ? topP.label : '-';
   const topPPct = totalPkmVotes > 0 ? ((topP.count / totalPkmVotes) * 100).toFixed(1) : 0;
-  document.getElementById('top-pkm-pct').innerText = `${topP.count} peminat (${topPPct}%)`;
+  document.getElementById('top-pkm-pct').innerText = topP.count > 0 ? `${topP.count} peminat (${topPPct}%)` : '0% dari total peminat';
 }
 
 // Helper untuk Render Panel Ranking di samping Chart
 function renderRankingList(containerId, items, totalRef) {
   const container = document.getElementById(containerId);
+  if (!container) return;
   container.innerHTML = '';
 
   // Sort descending berdasarkan jumlah terbanyak
@@ -647,8 +730,13 @@ function renderRankingList(containerId, items, totalRef) {
 }
 
 // Toast Notifikasi Respon Baru
-function triggerToast() {
+function triggerToast(customMsg) {
   const toast = document.getElementById('new-response-toast');
+  if (!toast) return;
+  if (customMsg) {
+    const msgEl = toast.querySelector('.toast-msg');
+    if (msgEl) msgEl.innerText = customMsg;
+  }
   toast.classList.add('show');
   setTimeout(() => {
     toast.classList.remove('show');

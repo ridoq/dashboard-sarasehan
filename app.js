@@ -568,6 +568,11 @@ async function fetchSpreadsheetData() {
       const strJurusan = rawJurusan.toString().trim();
       const strPkm = rawPkm.toString().trim();
 
+      // Abaikan jika ini baris header yang tak sengaja terambil
+      if (strJurusan.toLowerCase().includes('jurusan') || strPkm.toLowerCase().includes('jenis pkm') || strPkm.toLowerCase().includes('diminati')) {
+        return;
+      }
+
       // Hanya masukkan baris jika ada isi (bukan baris kosong sisa delete)
       if (strJurusan !== '' || strPkm !== '') {
         rows.push({
@@ -624,16 +629,49 @@ function updateUIWithRows(rows) {
     });
   }
 
-  // 2. Hitung Frekuensi PKM
+  // 2. Hitung Frekuensi PKM (Exact Token Matching - Mencegah 'K' terhitung dari 'KC' / 'KI' / kata 'PKM')
   const countPkm = {};
   MASTER_PKM.forEach(p => countPkm[p.code] = 0);
 
   if (rows && rows.length > 0) {
     rows.forEach(row => {
-      const rawVal = (row.pkm || '').toUpperCase();
-      MASTER_PKM.forEach(p => {
-        if (rawVal === p.code || rawVal.includes(`PKM-${p.code}`) || rawVal.includes(p.code)) {
-          countPkm[p.code]++;
+      const rawVal = (row.pkm || '').trim();
+      if (!rawVal) return;
+
+      // Abaikan jika tak sengaja membaca teks judul kolom
+      if (rawVal.toLowerCase().includes('jenis pkm') || rawVal.toLowerCase().includes('yang diminati')) {
+        return;
+      }
+
+      // Pisahkan jika responden memilih multiple checkbox (dipisah koma / titik koma)
+      const tokens = rawVal.split(/[,;\n]+/).map(t => t.trim()).filter(Boolean);
+
+      tokens.forEach(token => {
+        const upperToken = token.toUpperCase();
+        // Hilangkan prefix "PKM-" atau "PKM " agar tersisa kode murni (RE, KC, K, KI, PI, PM)
+        const cleanCode = upperToken.replace(/^PKM\s*[-–—]?\s*/i, '').trim();
+
+        // 1. Exact match terhadap kode PKM resmi (K, KC, RE, KI, PI, PM)
+        const matchedItem = MASTER_PKM.find(p => p.code === cleanCode);
+        if (matchedItem) {
+          countPkm[matchedItem.code]++;
+          return;
+        }
+
+        // 2. Fallback pencocokan kata kunci utuh (jika responden menulis deskripsi panjang)
+        const lowerToken = token.toLowerCase();
+        if (lowerToken.includes('kewirausahaan')) {
+          countPkm['K']++;
+        } else if (lowerToken.includes('karsa cipta')) {
+          countPkm['KC']++;
+        } else if (lowerToken.includes('riset') || lowerToken.includes('eksakta')) {
+          countPkm['RE']++;
+        } else if (lowerToken.includes('pengabdian') || lowerToken.includes('masyarakat')) {
+          countPkm['PM']++;
+        } else if (lowerToken.includes('iptek') || lowerToken.includes('penerapan')) {
+          countPkm['PI']++;
+        } else if (lowerToken.includes('karya inovatif') || lowerToken.includes('inovatif')) {
+          countPkm['KI']++;
         }
       });
     });

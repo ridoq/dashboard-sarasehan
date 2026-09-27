@@ -227,12 +227,105 @@ function setupEventListeners() {
     setDemoMode(true);
   });
 
+  // Intro Screen & Presentation Start Logic
+  const introScreen = document.getElementById('intro-screen');
+  const btnStart = document.getElementById('btn-start');
+  const btnIntro = document.getElementById('btn-intro');
+  const checkAutoFullscreen = document.getElementById('check-auto-fullscreen');
+
+  function startPresentation() {
+    if (checkAutoFullscreen && checkAutoFullscreen.checked) {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      }
+    }
+
+    if (introScreen) {
+      introScreen.classList.add('hidden');
+    }
+
+    // Trigger staggered entrance animation pada kartu-kartu dashboard
+    const mainEl = document.querySelector('.dashboard-main');
+    if (mainEl) {
+      mainEl.classList.remove('animate-in');
+      void mainEl.offsetWidth; // Reflow CSS animation
+      mainEl.classList.add('animate-in');
+    }
+
+    // Trigger animasi putaran awal Chart.js yang dramatis
+    if (state.chartJurusan) {
+      state.chartJurusan.reset();
+      state.chartJurusan.update({
+        duration: 1200,
+        easing: 'easeOutQuart'
+      });
+    }
+    if (state.chartPkm) {
+      state.chartPkm.reset();
+      state.chartPkm.update({
+        duration: 1200,
+        easing: 'easeOutQuart'
+      });
+    }
+
+    // Animasi angka count-up total responden
+    animateTotalCountUp();
+  }
+
+  if (btnStart) {
+    btnStart.addEventListener('click', startPresentation);
+  }
+
+  if (btnIntro) {
+    btnIntro.addEventListener('click', () => {
+      if (introScreen) {
+        introScreen.classList.remove('hidden');
+      }
+    });
+  }
+
+  // Hotkey Space atau Enter saat di layar Intro
+  window.addEventListener('keydown', (e) => {
+    if (introScreen && !introScreen.classList.contains('hidden')) {
+      if (e.key === ' ' || e.key === 'Enter') {
+        e.preventDefault();
+        startPresentation();
+      }
+    }
+  });
+
   if (btnTheme) {
     btnTheme.addEventListener('click', () => {
       const newTheme = state.theme === 'light' ? 'dark' : 'light';
       applyTheme(newTheme);
     });
   }
+}
+
+// Animasi Count-Up Total Responden saat Start
+function animateTotalCountUp() {
+  const el = document.getElementById('count-total');
+  if (!el) return;
+  const target = state.lastRowCount || (state.simulatedRows ? state.simulatedRows.length : 0);
+  if (target === 0) return;
+
+  const duration = 1200;
+  const startTime = performance.now();
+
+  function updateCount(currentTime) {
+    const elapsed = currentTime - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+    const easeProgress = progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress);
+    const currentVal = Math.floor(easeProgress * target);
+    el.innerText = currentVal.toLocaleString('id-ID');
+
+    if (progress < 1) {
+      requestAnimationFrame(updateCount);
+    } else {
+      el.innerText = target.toLocaleString('id-ID');
+    }
+  }
+  requestAnimationFrame(updateCount);
 }
 
 // Handler Tema (Light & Dark)

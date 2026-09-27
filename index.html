@@ -26,21 +26,26 @@
       </p>
 
       <div class="intro-action-box">
-        <button id="btn-start" class="btn-start-hero">
-          <span class="btn-start-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-              <polygon points="5 3 19 12 5 21 5 3"/>
-            </svg>
-          </span>
-          <span class="btn-start-text">TAMPILKAN HASIL (START)</span>
-        </button>
+        <div class="intro-btn-group">
+          <button id="btn-start" class="btn-start-hero">
+            <span class="btn-start-icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+                <polygon points="5 3 19 12 5 21 5 3"/>
+              </svg>
+            </span>
+            <span class="btn-start-text">TAMPILKAN HASIL (START)</span>
+          </button>
 
-        <div class="intro-options">
-          <label class="intro-checkbox-label">
-            <input type="checkbox" id="check-auto-fullscreen" checked>
-            <span>Otomatis Fullscreen saat Mulai</span>
-          </label>
-          <span class="intro-keyhint">Bisa tekan <kbd>Space</kbd> atau <kbd>Enter</kbd></span>
+          <button id="btn-intro-fullscreen" class="btn-intro-fs" title="Layar Penuh (F / F11)">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+            </svg>
+            <span>Layar Penuh</span>
+          </button>
+        </div>
+
+        <div class="intro-hints">
+          <span class="intro-keyhint">Bisa tekan <kbd>Space</kbd> atau <kbd>Enter</kbd> untuk mulai &bull; <kbd>F</kbd> untuk fullscreen</span>
         </div>
       </div>
     </div>

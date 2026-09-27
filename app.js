@@ -231,15 +231,9 @@ function setupEventListeners() {
   const introScreen = document.getElementById('intro-screen');
   const btnStart = document.getElementById('btn-start');
   const btnIntro = document.getElementById('btn-intro');
-  const checkAutoFullscreen = document.getElementById('check-auto-fullscreen');
+  const btnIntroFullscreen = document.getElementById('btn-intro-fullscreen');
 
   function startPresentation() {
-    if (checkAutoFullscreen && checkAutoFullscreen.checked) {
-      if (!document.fullscreenElement) {
-        document.documentElement.requestFullscreen().catch(() => {});
-      }
-    }
-
     if (introScreen) {
       introScreen.classList.add('hidden');
     }
@@ -274,6 +268,10 @@ function setupEventListeners() {
 
   if (btnStart) {
     btnStart.addEventListener('click', startPresentation);
+  }
+
+  if (btnIntroFullscreen) {
+    btnIntroFullscreen.addEventListener('click', toggleFullscreen);
   }
 
   if (btnIntro) {
